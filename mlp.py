@@ -30,7 +30,7 @@ class NeuralNetwork:
 
                 if ((i + 1) % bathSize) == 0:
                     for layer in self.layers:
-                        layer.updateParameters(len(X), learningRate)
+                        layer.updateParameters(bathSize, learningRate)
                 
                 loss += (Y[i] - self.layers[-1].a) ** 2
             loss /= len(X)
