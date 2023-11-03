@@ -34,6 +34,8 @@ class Layer:
             self.activationFunction = lrelu
         elif activationFunction == "softmax":
             self.activationFunction = softmax
+        else:
+            self.activationFunction = none
         
         self.weights = np.random.rand(nInputs, nNeurons)
         self.biases = np.random.rand(1, nNeurons)
@@ -45,7 +47,8 @@ class Layer:
         self.x = x
         z = np.dot(x, self.weights) + self.biases
         self.a = self.activationFunction(z, z, False)
-        self.da = self.activationFunction(self.a, z, True)
+        if self.activationFunctionType != "none":
+            self.da = self.activationFunction(self.a, z, True)
     
     def forwardPredict(self, x):
         z = np.dot(x, self.weights) + self.biases
@@ -56,8 +59,10 @@ class Layer:
         self.dbAcumulator += self.dz
     
     def backward(self, nextLayer):
-        self.dz = self.da * np.dot(nextLayer.dz, nextLayer.weights.T)
-        
+        if self.activationFunctionType != "none":
+            self.dz = self.da * np.dot(nextLayer.dz, nextLayer.weights.T)
+        else:
+            self.dz = np.dot(nextLayer.dz, nextLayer.weights.T)
         self.dwAcumulator += np.dot(self.x.T, self.dz)
         self.dbAcumulator += self.dz
     
