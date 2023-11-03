@@ -1,65 +1,75 @@
 
 import numpy as np
-from layer import *
+from activationFunctions import *
 from numba.experimental import jitclass
 import numba as nb
 
 spec = [
-        ("nInputs", nb.uint64), 
-        ("nOutputs", nb.uint64), 
-        ("layers", nb.types.ListType(Layer.class_type.instance_type)), 
+        ("weights", nb.float64[:, :]), 
+        ("biases", nb.float64[:, :]), 
+        ("dwAcumulator", nb.float64[:, :]), 
+        ("dbAcumulator", nb.float64[:, :]), 
+        ("x", nb.float64[:, :]), 
+        ("a", nb.float64[:, :]), 
+        ("da", nb.float64[:, :]), 
+        ("dz", nb.float64[:, :]), 
+        ("activationFunction", nb.float64[:, :](nb.float64[:, :], nb.float64[:, :], nb.b1).as_type()), 
+        ("activationFunctionType", nb.types.unicode_type)
         ]
 
 
 @jitclass(spec)
-class NeuralNetwork:
-    def __init__(self, nInputs, layers, activationFunctions):
-        self.nInputs = nInputs
-        self.nOutputs = layers[-1]
-        size = [nInputs] + layers
-        self.layers = nb.typed.List([Layer(size[i], size[i + 1], activationFunctions[i]) for i in range(len(layers))])#[Layer(size[i], size[i + 1], activationFunctions[i]) for i in range(len(layers))]
+class Layer:
+    def __init__(self, nInputs, nNeurons, activationFunction):
         
-    def fit(self, X, Y, learningRate, epochs, bathSize, printLoss = False):
-        X = np.expand_dims(X, 1)
-        Y = np.expand_dims(Y, 1)
-        for _ in range(epochs):
-            loss = 0.0
-            for i in range(len(X)):
-                a = X[i]
-                # Forward
-                for layer in self.layers:
-                    layer.forward(a)
-                    a = layer.a
-                
-                if self.layers[-1].activationFunctionType != "none":
-                    self.layers[-1].dz = (-2 * (Y[i] - a)) * self.layers[-1].da if self.layers[-1].activationFunctionType != "softmax" else np.dot((-2 * (Y[i] - a)), self.layers[-1].da)
-                else:
-                    self.layers[-1].dz = (-2 * (Y[i] - a))
-                self.layers[-1].backwardLastLayer()
-                nextLayer = self.layers[-1]
-                # Backward
-                for j in range(len(self.layers) - 2, -1, -1):
-                    self.layers[j].backward(nextLayer)
-                    nextLayer = self.layers[j]
-                
-                if ((i + 1) % bathSize) == 0:
-                    for j in nb.prange(len(self.layers)):
-                        self.layers[j].updateParameters(bathSize, learningRate)
-                
-                loss += ((Y[i] - self.layers[-1].a) ** 2).mean()
-            loss /= len(X)
-            if printLoss:
-                print(loss)
-            
-    def predict(self, X):
-        X = np.expand_dims(X, 1)
-        YHat = np.empty((X.shape[0], self.nOutputs))
-        for i in nb.prange(len(X)):
-            a = X[i]
-            # Forward
-            for layer in self.layers:
-                layer.forward(a)
-                a = layer.a
-            YHat[i] = a
-        return YHat
+        self.activationFunctionType = activationFunction
+        
+        if activationFunction == "sigmoid":
+            self.activationFunction = sigmoid
+        elif activationFunction == "tanh":
+            self.activationFunction = tanh
+        elif activationFunction == "relu":
+            self.activationFunction = relu
+        elif activationFunction == "lrelu":
+            self.activationFunction = lrelu
+        elif activationFunction == "softmax":
+            self.activationFunction = softmax
+        else:
+            self.activationFunction = none
+        
+        self.weights = np.random.rand(nInputs, nNeurons)
+        self.biases = np.random.rand(1, nNeurons)
+        
+        self.dwAcumulator = np.zeros((nInputs, nNeurons))
+        self.dbAcumulator = np.zeros((1, nNeurons))
     
+    def forward(self, x):
+        self.x = x
+        z = np.dot(x, self.weights) + self.biases
+        self.a = self.activationFunction(z, z, False)
+        if self.activationFunctionType != "none":
+            self.da = self.activationFunction(self.a, z, True)
+    
+    def forwardPredict(self, x):
+        z = np.dot(x, self.weights) + self.biases
+        return self.activationFunction(z, z, False)
+    
+    def backwardLastLayer(self):
+        self.dwAcumulator += np.dot(self.x.T, self.dz)
+        self.dbAcumulator += self.dz
+    
+    def backward(self, nextLayer):
+        if self.activationFunctionType != "none":
+            self.dz = self.da * np.dot(nextLayer.dz, nextLayer.weights.T)
+        else:
+            self.dz = np.dot(nextLayer.dz, nextLayer.weights.T)
+        self.dwAcumulator += np.dot(self.x.T, self.dz)
+        self.dbAcumulator += self.dz
+    
+    def updateParameters(self, n, learningRate):
+        self.weights -= (self.dwAcumulator / n) * learningRate
+        self.biases -= (self.dbAcumulator / n) * learningRate
+    
+        self.dwAcumulator = np.zeros(self.weights.shape)
+        self.dbAcumulator = np.zeros(self.biases.shape)
+
