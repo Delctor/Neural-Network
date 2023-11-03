@@ -34,7 +34,7 @@ def lrelu(a, z, derivate = False):
 def diagflat(arr):
     result = np.empty((arr.shape[0], arr.shape[0]))
     
-    for i in range(arr.shape[0]):
+    for i in nb.prange(arr.shape[0]):
         for j in range(arr.shape[0]):
             if i == j:
                 result[i, j] = arr[i, 0]
