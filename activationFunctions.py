@@ -51,3 +51,7 @@ def softmax(a, z, derivate = False):
         exp = np.exp(z - np.max(z))
         return exp / exp.sum()
     
+@nb.njit
+def none(a, z, derivate = False):
+    return z
+    
