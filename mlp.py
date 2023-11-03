@@ -31,7 +31,10 @@ class NeuralNetwork:
                     layer.forward(a)
                     a = layer.a
                 
-                self.layers[-1].dz = (-2 * (Y[i] - a)) * self.layers[-1].da if self.layers[-1].activationFunctionType != "softmax" else np.dot((-2 * (Y[i] - a)), self.layers[-1].da)
+                if self.layers[-1].activationFunctionType != "none":
+                    self.layers[-1].dz = (-2 * (Y[i] - a)) * self.layers[-1].da if self.layers[-1].activationFunctionType != "softmax" else np.dot((-2 * (Y[i] - a)), self.layers[-1].da)
+                else:
+                    self.layers[-1].dz = (-2 * (Y[i] - a))
                 self.layers[-1].backwardLastLayer()
                 nextLayer = self.layers[-1]
                 # Backward
@@ -40,9 +43,8 @@ class NeuralNetwork:
                     nextLayer = self.layers[j]
                 
                 if ((i + 1) % bathSize) == 0:
-                    
-                    for layer in self.layers:
-                        layer.updateParameters(bathSize, learningRate)
+                    for j in nb.prange(len(self.layers)):
+                        self.layers[j].updateParameters(bathSize, learningRate)
                 
                 loss += ((Y[i] - self.layers[-1].a) ** 2).mean()
             loss /= len(X)
@@ -52,7 +54,7 @@ class NeuralNetwork:
     def predict(self, X):
         X = np.expand_dims(X, 1)
         YHat = np.empty((X.shape[0], self.nOutputs))
-        for i in range(len(X)):
+        for i in nb.prange(len(X)):
             a = X[i]
             # Forward
             for layer in self.layers:
@@ -60,3 +62,5 @@ class NeuralNetwork:
                 a = layer.a
             YHat[i] = a
         return YHat
+    
+    
