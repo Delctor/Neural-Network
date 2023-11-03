@@ -32,9 +32,9 @@ class NeuralNetwork:
                     a = layer.a
                 
                 if self.layers[-1].activationFunctionType != "none":
-                    self.layers[-1].dz = (-2 * (Y[i] - a)) * self.layers[-1].da if self.layers[-1].activationFunctionType != "softmax" else np.dot((-2 * (Y[i] - a)), self.layers[-1].da)
+                    self.layers[-1].dz = (2 * (a - Y[i]) / Y[i].shape[1]) * self.layers[-1].da if self.layers[-1].activationFunctionType != "softmax" else np.dot((-2 * (Y[i] - a)), self.layers[-1].da)
                 else:
-                    self.layers[-1].dz = (-2 * (Y[i] - a))
+                    self.layers[-1].dz = 2 * (a - Y[i]) / Y[i].shape[1]
                 self.layers[-1].backwardLastLayer()
                 nextLayer = self.layers[-1]
                 # Backward
